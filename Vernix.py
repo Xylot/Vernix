@@ -3,9 +3,11 @@ import argparse
 import os
 import pathlib
 import subprocess
+import winshell
 from lxml import etree
 from pprint import pprint
 from tabulate import tabulate
+from win32com.client import Dispatch
 
 XML_CONFIG_PATH = 'Config/monitor_config.xml'
 USER_CONFIG_PATH = 'Config/user_config.json'
@@ -95,14 +97,26 @@ def generate_batch_file(user_config: dict, game_path: str):
 
 
 def export_batch_file(script_contents: list, game_name: str):
-    game_name += '.bat'
+    game_name = 'Batch Scripts/' + game_name + '.bat'
+    
     with open(game_name, 'w') as file:
         for line in script_contents:
             file.write(line + '\n')
 
+    return pathlib.Path(game_name).absolute()
+
 
 def get_game_name(executable_path: str):
     return pathlib.Path(executable_path).stem
+
+
+def create_shortcut(executable_path: str, batch_file_path: str, game_name: str):
+    shell = Dispatch('WScript.Shell')
+    shortcut = shell.CreateShortcut(game_name + '.lnk')
+    shortcut.TargetPath = str(batch_file_path)
+    shortcut.WorkingDirectory = str((pathlib.Path(batch_file_path)).parents[0])
+    shortcut.IconLocation = str(executable_path)
+    shortcut.save()
 
 game_path = parse_args().gamepath
 generate_monitor_config()
@@ -115,4 +129,5 @@ user_config = generate_user_config(choice, monitor_info)
 export_config(user_config)
 script_contents = generate_batch_file(user_config, game_path)
 game_name = get_game_name(game_path)
-export_batch_file(script_contents, game_name)
+batch_file_path = export_batch_file(script_contents, game_name)
+create_shortcut(game_path, batch_file_path, game_name)
