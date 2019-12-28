@@ -7,8 +7,8 @@ from lxml import etree
 from pprint import pprint
 from tabulate import tabulate
 
-XML_CONFIG_PATH = 'monitor_config.xml'
-USER_CONFIG_PATH = 'user_config.json'
+XML_CONFIG_PATH = 'Config/monitor_config.xml'
+USER_CONFIG_PATH = 'Config/user_config.json'
 
 
 def parse_args() -> argparse.Namespace:
@@ -100,12 +100,13 @@ def export_batch_file(script_contents: list, game_name: str):
         for line in script_contents:
             file.write(line + '\n')
 
+
 def get_game_name(executable_path: str):
     return pathlib.Path(executable_path).stem
 
 game_path = parse_args().gamepath
 generate_monitor_config()
-config = import_config('xml')
+config = import_config(XML_CONFIG_PATH)
 monitors_config = parse_config(config)
 monitor_info = get_monitor_info_table(monitors_config)
 display_monitor_configuration(monitor_info)
