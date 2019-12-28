@@ -1,7 +1,24 @@
 import json
+import argparse
+import os
+import pathlib
+import subprocess
 from lxml import etree
 from pprint import pprint
 from tabulate import tabulate
+
+XML_CONFIG_PATH = 'monitor_config.xml'
+USER_CONFIG_PATH = 'user_config.json'
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--gamepath', type=str, help="Path to the game's executable")
+    return parser.parse_args()
+
+
+def generate_monitor_config():
+    subprocess.call(['MultiMonitorTool', '/sxml', XML_CONFIG_PATH])
 
 
 def import_config(file_path: str) -> list:
@@ -19,14 +36,18 @@ def parse_config(config: list):
     return monitors
 
 
-def display_monitor_configuration(monitors_config: list):
+def get_monitor_info_table(monitors_config: list):
     display_info = []
-    display_header = ['Display #', 'Display Name', 'Resolution', 'Graphics Card']
 
     for monitor in monitors_config:
-         monitor_info = [clean_display_value(monitor['name']), monitor['monitor_name'], monitor['resolution'], monitor['adapter']]
+         monitor_info = [clean_display_value(monitor['name']), clean_primary_value(monitor['primary']), monitor['monitor_name'], monitor['resolution'], monitor['adapter']]
          display_info.append(monitor_info)
 
+    return display_info
+
+
+def display_monitor_configuration(display_info: list):
+    display_header = ['Display #', 'Primary', 'Display Name', 'Resolution', 'Graphics Card']
     print(convert_to_table(display_info, display_header))
     
 
@@ -34,14 +55,63 @@ def clean_display_value(display_value: str):
     return display_value.replace('\\\\.\\DISPLAY','')
 
 
+def clean_primary_value(primary_value: str):
+    if primary_value == 'Yes':
+        return '*'
+    else:
+        return ''
+
+
 def convert_to_table(content: list, headers: list):
-    return tabulate(content, headers, numalign="center")    
+    return tabulate(content, headers, colalign=("center", "center", "left",))    
 
 
 def prompt_user_for_monitor_choice():
-    pass
+    return input('\nWhich monitor do you want to start games on? ')
 
+
+def generate_user_config(choice: str, monitor_info: list):
+    user_config = {}
+    for monitor in monitor_info:
+        if choice == monitor[0]:
+            user_config['gaming_monitor'] = choice
+        if monitor[1]:
+            user_config['primary_monitor'] = monitor[0]
+    return user_config
+
+
+def export_config(config: dict):
+    with open(USER_CONFIG_PATH, 'w') as file:
+        json.dump(config, file)
+
+
+def generate_batch_file(user_config: dict, game_path: str):
+    script_contents = []
+    script_contents.append('@echo off')
+    script_contents.append('START nircmd setprimarydisplay {}'.format(user_config['gaming_monitor']))
+    script_contents.append('timeout /t 5 /nobreak')
+    script_contents.append('START "" "{}"'.format(game_path))
+    return script_contents
+
+
+def export_batch_file(script_contents: list, game_name: str):
+    game_name += '.bat'
+    with open(game_name, 'w') as file:
+        for line in script_contents:
+            file.write(line + '\n')
+
+def get_game_name(executable_path: str):
+    return pathlib.Path(executable_path).stem
+
+game_path = parse_args().gamepath
+generate_monitor_config()
 config = import_config('xml')
 monitors_config = parse_config(config)
-display_monitor_configuration(monitors_config)
-
+monitor_info = get_monitor_info_table(monitors_config)
+display_monitor_configuration(monitor_info)
+choice = prompt_user_for_monitor_choice()
+user_config = generate_user_config(choice, monitor_info)
+export_config(user_config)
+script_contents = generate_batch_file(user_config, game_path)
+game_name = get_game_name(game_path)
+export_batch_file(script_contents, game_name)
