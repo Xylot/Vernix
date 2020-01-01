@@ -96,14 +96,21 @@ def generate_batch_file(user_config: dict, game_path: str):
     return script_contents
 
 
-def export_batch_file(script_contents: list, game_name: str):
-    game_name = 'Batch Scripts/' + game_name + '.bat'
+def export_batch_file(script_contents: list, script_name: str):
+    script_name = 'Batch Scripts/' + script_name + '.bat'
     
-    with open(game_name, 'w') as file:
+    with open(script_name, 'w') as file:
         for line in script_contents:
             file.write(line + '\n')
 
-    return pathlib.Path(game_name).absolute()
+    return pathlib.Path(script_name).absolute()
+
+
+def generate_revert_batch_file(user_config: str):
+    script_contents = []
+    script_contents.append('@echo off')
+    script_contents.append('START nircmd setprimarydisplay {}'.format(user_config['primary_monitor']))
+    return script_contents
 
 
 def get_game_name(executable_path: str):
@@ -118,6 +125,7 @@ def create_shortcut(executable_path: str, batch_file_path: str, game_name: str):
     shortcut.IconLocation = str(executable_path)
     shortcut.save()
 
+
 game_path = parse_args().gamepath
 generate_monitor_config()
 config = import_config(XML_CONFIG_PATH)
@@ -130,4 +138,5 @@ export_config(user_config)
 script_contents = generate_batch_file(user_config, game_path)
 game_name = get_game_name(game_path)
 batch_file_path = export_batch_file(script_contents, game_name)
+export_batch_file(script_contents, 'revert')
 create_shortcut(game_path, batch_file_path, game_name)
